@@ -67,3 +67,54 @@ export function getBaseFileName(filePath: string) {
 	const dotIndex = fileName.lastIndexOf(".");
 	return dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
 }
+
+export interface WhisperSegment {
+	start?: number;
+	text?: string;
+}
+
+export interface WhisperTranscription {
+	text?: string;
+	segments?: WhisperSegment[];
+}
+
+export function getOriginalTranscription(
+	data: string | WhisperTranscription
+): string {
+	const text = typeof data === "string" ? data : data?.text ?? "";
+	return text.replace(/\s*\n+\s*/g, " ").trim();
+}
+
+function formatTranscriptTimestamp(seconds: number | undefined): string {
+	const totalSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const remainingSeconds = totalSeconds % 60;
+
+	if (hours > 0) {
+		return `${hours}:${String(minutes).padStart(2, "0")}:${String(
+			remainingSeconds
+		).padStart(2, "0")}`;
+	}
+	return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+export function renderTimestampedTranscription(
+	data: string | WhisperTranscription
+): string {
+	const fallback = getOriginalTranscription(data);
+	if (typeof data === "string" || !Array.isArray(data.segments)) {
+		return fallback;
+	}
+
+	const paragraphs = data.segments
+		.map((segment) => {
+			const text = segment.text?.trim() ?? "";
+			return text
+				? `**${formatTranscriptTimestamp(segment.start)}** · ${text}`
+				: "";
+		})
+		.filter(Boolean);
+
+	return paragraphs.length > 0 ? paragraphs.join("\n\n") : fallback;
+}

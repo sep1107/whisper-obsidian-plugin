@@ -6,6 +6,8 @@ import {
 	getCursorContext,
 	buildTemplateVariables,
 	resolveTemplate,
+	getOriginalTranscription,
+	renderTimestampedTranscription,
 } from "./utils";
 import { PostProcessor } from "./PostProcessor";
 
@@ -144,7 +146,10 @@ export class AudioHandler {
 				}
 			);
 
-			const originalText: string = response.data.text;
+			const originalText = getOriginalTranscription(response.data);
+			const postProcessingInput = renderTimestampedTranscription(
+				response.data
+			);
 			let finalText = originalText;
 
 			// Post-process with LLM if enabled
@@ -167,7 +172,7 @@ export class AudioHandler {
 						provider: this.plugin.settings.postProcessingProvider,
 					});
 					finalText = await processor.process(
-						originalText,
+						postProcessingInput,
 						this.plugin.settings.postProcessingPrompt
 					);
 				} catch (err) {

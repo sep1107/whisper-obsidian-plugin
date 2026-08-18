@@ -43,13 +43,14 @@ export class PostProcessor {
 	}
 
 	private async callAnthropic(text: string, prompt: string): Promise<string> {
+		const userContent = `${prompt}\n\nThe text to edit is inside the <transcript> tags. The tags are not part of the text. Return only the edited text.\n\n<transcript>\n${text}\n</transcript>`;
 		const response = await axios.post(
 			this.config.url,
 			{
 				model: this.config.model,
 				max_tokens: 8192,
 				system: prompt,
-				messages: [{ role: "user", content: text }],
+				messages: [{ role: "user", content: userContent }],
 			},
 			{
 				headers: {
@@ -60,6 +61,18 @@ export class PostProcessor {
 				},
 			}
 		);
-		return response.data.content[0].text;
+		const output = response.data.content
+			.filter(
+				(block: { type?: string; text?: string }) =>
+					block.type === "text" && typeof block.text === "string"
+			)
+			.map((block: { text: string }) => block.text)
+			.join("\n")
+			.trim();
+
+		if (!output) {
+			throw new Error("Anthropic response contains no text content");
+		}
+		return output;
 	}
 }

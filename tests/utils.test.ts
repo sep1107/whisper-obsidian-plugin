@@ -5,6 +5,8 @@ import {
 	getExtensionFromMimeType,
 	resolveTemplate,
 	buildTemplateVariables,
+	getOriginalTranscription,
+	renderTimestampedTranscription,
 } from "../src/utils";
 
 describe("getBaseFileName", () => {
@@ -157,5 +159,31 @@ describe("buildTemplateVariables", () => {
 		expect(vars.title).toBe("title");
 		expect(vars.transcription).toBe("text");
 		expect(vars.audioFile).toBe("audio.webm");
+	});
+});
+
+describe("Whisper transcription rendering", () => {
+	it("keeps the original transcription as continuous text", () => {
+		expect(getOriginalTranscription({ text: "第一行。\n\n第二行。" })).toBe(
+			"第一行。 第二行。"
+		);
+	});
+
+	it("renders verbose_json segments with start timestamps", () => {
+		expect(
+			renderTimestampedTranscription({
+				text: "第一段第二段",
+				segments: [
+					{ start: 0, text: " 第一段 " },
+					{ start: 65.9, text: "第二段" },
+				],
+			})
+		).toBe("**0:00** · 第一段\n\n**1:05** · 第二段");
+	});
+
+	it("falls back to continuous text when segments are unavailable", () => {
+		expect(renderTimestampedTranscription({ text: "正文\n仍是正文" })).toBe(
+			"正文 仍是正文"
+		);
 	});
 });

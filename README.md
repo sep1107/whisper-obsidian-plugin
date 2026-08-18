@@ -47,6 +47,8 @@ Supports Claude, GPT, or any OpenAI-compatible endpoint (Ollama, LM Studio, etc.
 
 You can also enable **Auto-generate title** to create descriptive filenames for your notes.
 
+When the transcription API supports OpenAI `verbose_json`, post-processing receives timestamped segments so the LLM can preserve useful navigation markers. The appended original transcription remains continuous text. Timestamp grouping and formatting can be controlled in the post-processing prompt.
+
 ## Note Templates
 
 When **Create note file** is enabled, you can customize the filename and content using template variables:

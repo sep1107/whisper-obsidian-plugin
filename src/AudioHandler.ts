@@ -106,6 +106,10 @@ export class AudioHandler {
 				"response_format",
 				this.plugin.settings.responseFormat
 			);
+		if (this.plugin.settings.responseFormat === "verbose_json") {
+			formData.append("timestamp_granularities[]", "word");
+			formData.append("timestamp_granularities[]", "segment");
+		}
 
 		try {
 			// If the saveAudioFile setting is true, save the audio file

@@ -73,9 +73,15 @@ export interface WhisperSegment {
 	text?: string;
 }
 
+export interface WhisperWord {
+	start?: number;
+	word?: string;
+}
+
 export interface WhisperTranscription {
 	text?: string;
 	segments?: WhisperSegment[];
+	words?: WhisperWord[];
 }
 
 export function getOriginalTranscription(
@@ -125,18 +131,28 @@ export function ensureTimestampedParagraphs(
 	text: string,
 	data: string | WhisperTranscription
 ): string {
-	if (typeof data === "string" || !Array.isArray(data.segments)) {
+	if (typeof data === "string") {
 		return text.trim();
 	}
 
-	const segments = data.segments.filter((segment) => segment.text?.trim());
+	const words = Array.isArray(data.words)
+		? data.words
+				.filter((word) => word.word?.trim())
+				.map((word) => ({ start: word.start, text: word.word }))
+		: [];
+	const timedItems =
+		words.length > 0
+			? words
+			: Array.isArray(data.segments)
+			? data.segments.filter((segment) => segment.text?.trim())
+			: [];
 	let paragraphs = text
 		.trim()
 		.split(/\n\s*\n+/)
 		.map((paragraph) => paragraph.trim())
 		.filter(Boolean);
 
-	if (segments.length === 0 || paragraphs.length === 0) {
+	if (timedItems.length === 0 || paragraphs.length === 0) {
 		return paragraphs.join("\n\n");
 	}
 	if (
@@ -149,17 +165,30 @@ export function ensureTimestampedParagraphs(
 	paragraphs = paragraphs.map((paragraph) =>
 		paragraph.replace(TIMESTAMP_PREFIX, "")
 	);
-	if (paragraphs.length === 1) {
-		const sentences =
+	if (paragraphs.length === 1 && paragraphs[0].length > 100) {
+		const clauses =
 			paragraphs[0]
-				.match(/[^。！？!?]+[。！？!?]+|[^。！？!?]+$/g)
-				?.map((sentence) => sentence.trim())
+				.match(/[^，,。！？!?；;]+[，,。！？!?；;]?/g)
+				?.map((clause) => clause.trim())
 				.filter(Boolean) ?? [];
-		if (sentences.length > 3) {
-			paragraphs = [];
-			for (let index = 0; index < sentences.length; index += 3) {
-				paragraphs.push(sentences.slice(index, index + 3).join(""));
+		const grouped: string[] = [];
+		let current = "";
+		for (const clause of clauses) {
+			current += clause;
+			if (current.length >= 100) {
+				grouped.push(current);
+				current = "";
 			}
+		}
+		if (current) {
+			if (current.length < 40 && grouped.length > 0) {
+				grouped[grouped.length - 1] += current;
+			} else {
+				grouped.push(current);
+			}
+		}
+		if (grouped.length > 1) {
+			paragraphs = grouped;
 		}
 	}
 
@@ -167,8 +196,8 @@ export function ensureTimestampedParagraphs(
 		(total, paragraph) => total + paragraph.length,
 		0
 	);
-	const sourceLength = segments.reduce(
-		(total, segment) => total + (segment.text?.trim().length ?? 0),
+	const sourceLength = timedItems.reduce(
+		(total, item) => total + (item.text?.trim().length ?? 0),
 		0
 	);
 	let outputOffset = 0;
@@ -179,14 +208,14 @@ export function ensureTimestampedParagraphs(
 				? (outputOffset / outputLength) * sourceLength
 				: 0;
 			let consumed = 0;
-			const segment =
-				segments.find((candidate) => {
+			const item =
+				timedItems.find((candidate) => {
 					consumed += candidate.text?.trim().length ?? 0;
 					return sourceOffset < consumed;
-				}) ?? segments[segments.length - 1];
+				}) ?? timedItems[timedItems.length - 1];
 			outputOffset += paragraph.length;
 			return `**${formatTranscriptTimestamp(
-				segment.start
+				item.start
 			)}** · ${paragraph}`;
 		})
 		.join("\n\n");

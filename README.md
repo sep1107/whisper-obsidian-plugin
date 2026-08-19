@@ -47,7 +47,7 @@ Supports Claude, GPT, or any OpenAI-compatible endpoint (Ollama, LM Studio, etc.
 
 You can also enable **Auto-generate title** to create descriptive filenames for your notes.
 
-When the transcription API supports OpenAI `verbose_json`, post-processing receives timestamped segments so the LLM can preserve useful navigation markers. If the LLM omits those markers or returns one long block, the plugin restores timestamps and groups complete sentences into readable paragraphs. The appended original transcription remains continuous text.
+When the transcription API supports OpenAI `verbose_json`, the plugin requests word and segment timestamps for useful navigation markers. If the LLM omits those markers or returns one long block, the plugin restores timestamps and groups the result at natural punctuation boundaries. The appended original transcription remains continuous text.
 
 ## Note Templates
 

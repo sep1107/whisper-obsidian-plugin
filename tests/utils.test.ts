@@ -200,32 +200,37 @@ describe("Whisper transcription rendering", () => {
 		).toBe(output);
 	});
 
-	it("restores timestamps and groups a long unsegmented model response", () => {
-		const segments = Array.from({ length: 7 }, (_, index) => ({
-			start: index * 10,
-			text: `第${index + 1}句。`,
+	it("uses word timestamps to group a long single-segment response", () => {
+		const clauses = Array.from(
+			{ length: 4 },
+			(_, index) => `${String(index + 1).repeat(49)}，`
+		);
+		const words = clauses.map((word, index) => ({
+			start: index * 5,
+			word,
 		}));
 		expect(
-			ensureTimestampedParagraphs(
-				"第1句。第2句。第3句。第4句。第5句。第6句。第7句。",
-				{ segments }
-			)
+			ensureTimestampedParagraphs(clauses.join(""), {
+				segments: [{ start: 0, text: clauses.join("") }],
+				words,
+			})
 		).toBe(
-			"**0:00** · 第1句。第2句。第3句。\n\n**0:30** · 第4句。第5句。第6句。\n\n**1:00** · 第7句。"
+			`**0:00** · ${clauses.slice(0, 2).join("")}\n\n**0:10** · ${clauses
+				.slice(2)
+				.join("")}`
 		);
 	});
 
-	it("groups a long response even when it only kept the first timestamp", () => {
-		const segments = Array.from({ length: 4 }, (_, index) => ({
-			start: index * 10,
-			text: `第${index + 1}句。`,
-		}));
+	it("keeps a short response in one paragraph", () => {
+		const segments = [
+			{ start: 0, text: "第一句。第二句。第三句。第四句。" },
+		];
 		expect(
 			ensureTimestampedParagraphs(
-				"**0:00** · 第1句。第2句。第3句。第4句。",
+				"**0:00** · 第一句。第二句。第三句。第四句。",
 				{ segments }
 			)
-		).toBe("**0:00** · 第1句。第2句。第3句。\n\n**0:30** · 第4句。");
+		).toBe("**0:00** · 第一句。第二句。第三句。第四句。");
 	});
 
 	it("adds timestamps to model-created paragraphs without changing them", () => {

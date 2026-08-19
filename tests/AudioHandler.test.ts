@@ -27,6 +27,10 @@ function buildFormData(settings: PluginSettings, blob: Blob, fileName: string) {
 	if (responseFormat && responseFormat !== "json") {
 		formData.append("response_format", responseFormat);
 	}
+	if (responseFormat === "verbose_json") {
+		formData.append("timestamp_granularities[]", "word");
+		formData.append("timestamp_granularities[]", "segment");
+	}
 
 	return formData;
 }
@@ -198,6 +202,18 @@ describe("#35 — Whisper API params in formData", () => {
 		const settings = { ...DEFAULT_SETTINGS, responseFormat: "json" } as any;
 		const fd = buildFormData(settings, blob, "test.webm");
 		expect(fd.get("response_format")).toBeNull();
+	});
+
+	it("requests word and segment timestamps for verbose_json", () => {
+		const settings = {
+			...DEFAULT_SETTINGS,
+			responseFormat: "verbose_json",
+		} as any;
+		const fd = buildFormData(settings, blob, "test.webm");
+		expect(fd.getAll("timestamp_granularities[]")).toEqual([
+			"word",
+			"segment",
+		]);
 	});
 });
 

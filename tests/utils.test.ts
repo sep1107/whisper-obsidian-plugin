@@ -5,6 +5,7 @@ import {
 	getExtensionFromMimeType,
 	resolveTemplate,
 	buildTemplateVariables,
+	ensureTimestampedParagraphs,
 	getOriginalTranscription,
 	renderTimestampedTranscription,
 } from "../src/utils";
@@ -185,5 +186,56 @@ describe("Whisper transcription rendering", () => {
 		expect(renderTimestampedTranscription({ text: "正文\n仍是正文" })).toBe(
 			"正文 仍是正文"
 		);
+	});
+
+	it("keeps model output when every paragraph already has a timestamp", () => {
+		const output = "**0:00** · 第一段。\n\n**0:20** · 第二段。";
+		expect(
+			ensureTimestampedParagraphs(output, {
+				segments: [
+					{ start: 0, text: "第一段。" },
+					{ start: 20, text: "第二段。" },
+				],
+			})
+		).toBe(output);
+	});
+
+	it("restores timestamps and groups a long unsegmented model response", () => {
+		const segments = Array.from({ length: 7 }, (_, index) => ({
+			start: index * 10,
+			text: `第${index + 1}句。`,
+		}));
+		expect(
+			ensureTimestampedParagraphs(
+				"第1句。第2句。第3句。第4句。第5句。第6句。第7句。",
+				{ segments }
+			)
+		).toBe(
+			"**0:00** · 第1句。第2句。第3句。\n\n**0:30** · 第4句。第5句。第6句。\n\n**1:00** · 第7句。"
+		);
+	});
+
+	it("groups a long response even when it only kept the first timestamp", () => {
+		const segments = Array.from({ length: 4 }, (_, index) => ({
+			start: index * 10,
+			text: `第${index + 1}句。`,
+		}));
+		expect(
+			ensureTimestampedParagraphs(
+				"**0:00** · 第1句。第2句。第3句。第4句。",
+				{ segments }
+			)
+		).toBe("**0:00** · 第1句。第2句。第3句。\n\n**0:30** · 第4句。");
+	});
+
+	it("adds timestamps to model-created paragraphs without changing them", () => {
+		expect(
+			ensureTimestampedParagraphs("第一段。\n\n第二段。", {
+				segments: [
+					{ start: 0, text: "第一段。" },
+					{ start: 12, text: "第二段。" },
+				],
+			})
+		).toBe("**0:00** · 第一段。\n\n**0:12** · 第二段。");
 	});
 });

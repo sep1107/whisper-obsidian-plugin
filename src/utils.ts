@@ -118,3 +118,76 @@ export function renderTimestampedTranscription(
 
 	return paragraphs.length > 0 ? paragraphs.join("\n\n") : fallback;
 }
+
+const TIMESTAMP_PREFIX = /^\s*\*\*\d+:\d{2}(?::\d{2})?\*\*\s*·\s*/;
+
+export function ensureTimestampedParagraphs(
+	text: string,
+	data: string | WhisperTranscription
+): string {
+	if (typeof data === "string" || !Array.isArray(data.segments)) {
+		return text.trim();
+	}
+
+	const segments = data.segments.filter((segment) => segment.text?.trim());
+	let paragraphs = text
+		.trim()
+		.split(/\n\s*\n+/)
+		.map((paragraph) => paragraph.trim())
+		.filter(Boolean);
+
+	if (segments.length === 0 || paragraphs.length === 0) {
+		return paragraphs.join("\n\n");
+	}
+	if (
+		paragraphs.length > 1 &&
+		paragraphs.every((paragraph) => TIMESTAMP_PREFIX.test(paragraph))
+	) {
+		return paragraphs.join("\n\n");
+	}
+
+	paragraphs = paragraphs.map((paragraph) =>
+		paragraph.replace(TIMESTAMP_PREFIX, "")
+	);
+	if (paragraphs.length === 1) {
+		const sentences =
+			paragraphs[0]
+				.match(/[^。！？!?]+[。！？!?]+|[^。！？!?]+$/g)
+				?.map((sentence) => sentence.trim())
+				.filter(Boolean) ?? [];
+		if (sentences.length > 3) {
+			paragraphs = [];
+			for (let index = 0; index < sentences.length; index += 3) {
+				paragraphs.push(sentences.slice(index, index + 3).join(""));
+			}
+		}
+	}
+
+	const outputLength = paragraphs.reduce(
+		(total, paragraph) => total + paragraph.length,
+		0
+	);
+	const sourceLength = segments.reduce(
+		(total, segment) => total + (segment.text?.trim().length ?? 0),
+		0
+	);
+	let outputOffset = 0;
+
+	return paragraphs
+		.map((paragraph) => {
+			const sourceOffset = outputLength
+				? (outputOffset / outputLength) * sourceLength
+				: 0;
+			let consumed = 0;
+			const segment =
+				segments.find((candidate) => {
+					consumed += candidate.text?.trim().length ?? 0;
+					return sourceOffset < consumed;
+				}) ?? segments[segments.length - 1];
+			outputOffset += paragraph.length;
+			return `**${formatTranscriptTimestamp(
+				segment.start
+			)}** · ${paragraph}`;
+		})
+		.join("\n\n");
+}

@@ -8,6 +8,7 @@ import {
 	resolveTemplate,
 	getOriginalTranscription,
 	renderTimestampedTranscription,
+	ensureTimestampedParagraphs,
 } from "./utils";
 import { PostProcessor } from "./PostProcessor";
 
@@ -174,6 +175,10 @@ export class AudioHandler {
 					finalText = await processor.process(
 						postProcessingInput,
 						this.plugin.settings.postProcessingPrompt
+					);
+					finalText = ensureTimestampedParagraphs(
+						finalText,
+						response.data
 					);
 				} catch (err) {
 					console.error("Post-processing failed:", err);
